@@ -25,6 +25,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,6 +50,7 @@ public class PetControllerTest {
     private MemberRepository memberRepository;
 
     private Member testMember;
+    private Member otherMember;
 
     @BeforeEach
     void setUp() {
@@ -63,6 +65,15 @@ public class PetControllerTest {
                 .role(UserRole.USER)
                 .build();
         memberRepository.save(testMember);
+
+        otherMember = Member.builder()
+                .email("otheruser@example.com")
+                .name("다른 유저")
+                .password("encoded-password")
+                .phone("010-9876-5432")
+                .role(UserRole.USER)
+                .build();
+        memberRepository.save(otherMember);
     }
 
 
@@ -99,8 +110,35 @@ public class PetControllerTest {
 
     @Test
     @WithMockUser(username = "testuser@example.com")
-    @DisplayName("펫 수정 성공 테스트")
+    @DisplayName("펫 생성 실패 테스트 - 필수 필드 누락")
     void t2() throws Exception {
+        // 이름(name) 필드 빈 문자열로 해서 유효성 실패 유도
+        PetCreateRequestDto dto = new PetCreateRequestDto(
+                "",  // 이름 빈 값 - 필수
+                "푸들",
+                3,
+                Gender.FEMALE,
+                "활발한 강아지",
+                "http://example.com/image.jpg",
+                "",
+                List.of("ADOPTED")
+        );
+
+        mockMvc.perform(post("/api/pets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INPUT-400"))
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.content").isEmpty());
+    }
+
+
+    @Test
+    @WithMockUser(username = "testuser@example.com")
+    @DisplayName("펫 수정 성공 테스트")
+    void t3() throws Exception {
         // 펫 생성 (DB 저장)
         var pet = petRepository.save(
                 com.back.domain.pet.entity.Pet.builder()
@@ -140,10 +178,98 @@ public class PetControllerTest {
 
     }
 
+
+    @Test
+    @WithMockUser(username = "testuser@example.com")
+    @DisplayName("펫 수정 실패 - 존재하지 않는 펫 ID")
+    void t4() throws Exception {
+        PetUpdateRequestDto updateDto = new PetUpdateRequestDto(
+                "초코-수정",
+                "푸들",
+                4,
+                Gender.FEMALE,
+                "더 활발해진 강아지",
+                "http://example.com/newimage.jpg",
+                "",
+                List.of("ADOPTED", "CARE_IN_PROGRESS")
+        );
+
+        mockMvc.perform(put("/api/pets/{id}", 9999L)  // 없는 ID
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateDto)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PET-404"))
+                .andExpect(jsonPath("$.message").value("해당 동물을 찾을 수 없습니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "otheruser@example.com")
+    @DisplayName("펫 수정 실패 - 권한 없음 ")
+    void t5() throws Exception {
+        // testMember가 만든 펫 저장
+        var pet = petRepository.save(
+                com.back.domain.pet.entity.Pet.builder()
+                        .name("초코")
+                        .species("푸들")
+                        .age(3)
+                        .gender(Gender.FEMALE)
+                        .description("활발한 강아지")
+                        .imageUrl("http://example.com/image.jpg")
+                        .member(testMember)  // 실제 소유자
+                        .petStatuses(new ArrayList<>())
+                        .build()
+        );
+
+        PetUpdateRequestDto updateDto = new PetUpdateRequestDto(
+                "수정된 이름",
+                "푸들",
+                4,
+                Gender.FEMALE,
+                "수정된 설명",
+                "http://example.com/newimage.jpg",
+                "",
+                List.of()
+        );
+
+        mockMvc.perform(put("/api/pets/{id}", pet.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateDto)))
+                .andExpect(status().isForbidden())  // 403 기대
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("AUTH-403"))
+                .andExpect(jsonPath("$.message").value("권한이 없습니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "testuser@example.com")
+    @DisplayName("펫 생성 실패 - 이름 빈칸으로 인한 validation 실패 (400 Bad Request)")
+    void t6() throws Exception {
+        PetCreateRequestDto invalidDto = new PetCreateRequestDto(
+                "",  // 빈 이름 (Invalid)
+                "푸들",
+                3,
+                Gender.FEMALE,
+                "설명",
+                "http://example.com/image.jpg",
+                "",
+                List.of()
+        );
+
+        mockMvc.perform(post("/api/pets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidDto)))
+                .andExpect(status().isBadRequest())  // 400 기대
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INPUT-400"))
+                .andExpect(jsonPath("$.message").value("이름은 필수입니다."));
+    }
+
+
+
     @Test
     @WithMockUser(username = "testuser@example.com")
     @DisplayName("펫 삭제 성공 테스트")
-    void v3() throws Exception {
+    void t7() throws Exception {
         var pet = petRepository.save(
                 com.back.domain.pet.entity.Pet.builder()
                         .name("초코")
@@ -165,11 +291,50 @@ public class PetControllerTest {
         boolean exists = petRepository.existsById(pet.getId());
         assertFalse(exists);
     }
+    @Test
+    @WithMockUser(username = "testuser@example.com")
+    @DisplayName("펫 삭제 실패 - 존재하지 않는 펫 ID로 삭제 시도 시 404 NOT FOUND")
+    void t8() throws Exception {
+        Long nonExistentPetId = 999999L; // DB에 없는 ID
+
+        mockMvc.perform(delete("/api/pets/{id}", nonExistentPetId))
+                .andExpect(status().isNotFound())  // 404 기대
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("PET-404"))
+                .andExpect(jsonPath("$.message").value("해당 동물을 찾을 수 없습니다."));
+    }
+
+
+
+    @Test
+    @WithMockUser(username = "otheruser@example.com")  // 본인 아닌 다른 유저
+    @DisplayName("펫 삭제 실패 - 권한 없는 사용자가 펫 삭제 시도 시 실패 테스트")
+    void t9() throws Exception {
+        var pet = petRepository.save(
+                com.back.domain.pet.entity.Pet.builder()
+                        .name("초코")
+                        .species("푸들")
+                        .age(3)
+                        .gender(Gender.FEMALE)
+                        .description("활발한 강아지")
+                        .imageUrl("http://example.com/image.jpg")
+                        .member(testMember)  // testMember가 주인
+                        .petStatuses(new ArrayList<>())
+                        .build()
+        );
+
+        mockMvc.perform(delete("/api/pets/{id}", pet.getId()))
+                .andExpect(status().isForbidden())  // 403 에러 예상
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("AUTH-403"))
+                .andExpect(jsonPath("$.message").value("권한이 없습니다."));
+    }
+
 
     @Test
     @WithMockUser(username = "testuser@example.com")
     @DisplayName("펫 단건 조회 성공 테스트")
-    void t4() throws Exception {
+    void t10() throws Exception {
         var pet = petRepository.save(
                 com.back.domain.pet.entity.Pet.builder()
                         .name("초코")
@@ -197,9 +362,17 @@ public class PetControllerTest {
     }
 
     @Test
+    @DisplayName("펫 단건 조회 실패 - 없는 ID")
+    void t11() throws Exception {
+        mockMvc.perform(get("/api/pets/{id}", 999999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PET-404"));
+    }
+
+    @Test
     @WithMockUser(username = "testuser@example.com")
     @DisplayName("펫 전체 조회 성공 테스트")
-    void t5() throws Exception {
+    void t12() throws Exception {
         petRepository.saveAll(List.of(
                 com.back.domain.pet.entity.Pet.builder()
                         .name("초코")
@@ -231,6 +404,36 @@ public class PetControllerTest {
                 .andExpect(jsonPath("$.content[1].name").value("콩이"));
     }
 
+    @Test
+    @DisplayName("펫 전체 조회 - 여러 개")
+    void t13() throws Exception {
+        petRepository.saveAll(List.of(
+                com.back.domain.pet.entity.Pet.builder()
+                        .name("초코")
+                        .species("푸들")
+                        .age(3)
+                        .gender(Gender.FEMALE)
+                        .description("활발한 강아지")
+                        .imageUrl("http://example.com/image1.jpg")
+                        .member(testMember)
+                        .petStatuses(new ArrayList<>())
+                        .build(),
+                com.back.domain.pet.entity.Pet.builder()
+                        .name("콩이")
+                        .species("시추")
+                        .age(5)
+                        .gender(Gender.MALE)
+                        .description("귀여운 강아지")
+                        .imageUrl("http://example.com/image2.jpg")
+                        .member(testMember)
+                        .petStatuses(new ArrayList<>())
+                        .build()
+        ));
 
+
+        mockMvc.perform(get("/api/pets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(greaterThan(0))));
+    }
 
 }
