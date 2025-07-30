@@ -26,7 +26,7 @@ public class PetController {
     @PostMapping
     @Operation(summary = "동물 생성")
     public ResponseEntity<ApiResponse<PetInfoResponseDto>> createPet(
-            @RequestBody PetCreateRequestDto dto,
+            @RequestBody @Valid PetCreateRequestDto dto,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         String userEmail = userDetails.getUsername();
