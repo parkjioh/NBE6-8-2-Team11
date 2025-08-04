@@ -7,6 +7,10 @@ interface ProfileInfoProps {
 }
 
 export default function ProfileInfo({ user }: ProfileInfoProps) {
+  const userInfoStr = localStorage.getItem('userInfo');
+  console.log('🧩 userInfoStr:', userInfoStr);
+
+
   if (!user) {
     return (
       <div className="text-center py-8">

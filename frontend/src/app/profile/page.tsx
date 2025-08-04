@@ -16,28 +16,34 @@ import {ProfileService} from '../../shared/services/profileService'
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      setIsLoading(true);
-      try {
-        const userId = localStorage.getItem('userId');
-        if (userId) {
-          const fetchedUser = await ProfileService.fetchUserById(Number(userId));
-          setUser(fetchedUser);
-        }
-      } catch (error) {
-        console.error('사용자 정보 로딩 실패:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    useEffect(() => {
+         const loadUserData = async () => {
+             setIsLoading(true);
+             try {
+                 const userInfoStr = localStorage.getItem('userInfo');
+                 if (!userInfoStr) throw new Error('No userInfo found');
 
-    loadUserData();
-  }, []);
+                 const userInfo = JSON.parse(userInfoStr);
+                 const userId = Number(userInfo.sub);  // 토큰에 저장된 userId 사용
+
+                 if (userId) {
+                     const fetchedUser = await ProfileService.fetchUserById(userId);
+                     setUser(fetchedUser);
+                 }
+             } catch (error) {
+                 console.error('사용자 정보 로딩 실패:', error);
+             } finally {
+                 setIsLoading(false);
+             }
+         };
+
+         loadUserData();
+     }, []);
 
 
 
-  const tabs = [
+
+     const tabs = [
     { id: 'info', label: '내 정보', icon: '👤' },
     { id: 'edit', label: '정보 수정', icon: '✏️' },
     { id: 'history', label: '입양 이력', icon: '📋' }
