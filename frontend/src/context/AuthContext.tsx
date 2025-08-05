@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface UserInfo {
+  id: number;
   sub: string;
   auth: string;
   exp: number;
@@ -63,7 +64,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, userInfo, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn,
+      userInfo, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

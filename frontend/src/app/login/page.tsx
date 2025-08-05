@@ -44,6 +44,7 @@ export default function LoginPage() {
         response.accessToken,
         response.refreshToken,
         {
+          id: response.userId,
           sub: response.userId.toString(),
           auth: 'USER',
           exp: Date.now() + 3600000, // 1시간 후 만료
@@ -51,7 +52,6 @@ export default function LoginPage() {
           email: response.userEmail,
         }
       );
-      
       console.log('로그인 상태 업데이트 완료, 홈페이지로 이동합니다.');
       
       // 로그인 성공 시 즉시 홈페이지로 이동

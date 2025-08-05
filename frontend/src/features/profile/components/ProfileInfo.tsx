@@ -16,8 +16,18 @@ export default function ProfileInfo({ user }: ProfileInfoProps) {
   }
 
   const getMemberTypeLabel = (type: string) => {
-    return type === 'adopter' ? '입양 희망자' : '보호소';
+    if (type === 'adopter') return '입양 희망자';
+    if (type === 'shelter') return '보호소';
+    return '입양 희망자';
   };
+
+  const getMemberTypeClass = (type: string) => {
+    if (type === 'adopter') return 'bg-green-100 text-green-800';
+    if (type === 'shelter') return 'bg-blue-100 text-blue-800';
+    return 'bg-green-100 text-green-800';
+  };
+
+
 
   return (
     <div className="space-y-6">
@@ -44,7 +54,7 @@ export default function ProfileInfo({ user }: ProfileInfoProps) {
           <p className="text-gray-600 mb-4">{user.email}</p>
           
           <div className="flex items-center space-x-4 text-sm text-gray-500">
-            <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full">
+            <span className={`${getMemberTypeClass(user.memberType)} px-3 py-1 rounded-full`}>
               {getMemberTypeLabel(user.memberType)}
             </span>
             <span>가입일: {formatDate(user.createdAt)}</span>

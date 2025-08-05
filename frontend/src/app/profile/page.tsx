@@ -22,17 +22,23 @@ export default function ProfilePage() {
       setIsLoading(true);
       try {
         const userInfoStr = localStorage.getItem('userInfo');
+        console.log('localStorage userInfo:', userInfoStr);
         if (!userInfoStr) throw new Error('No userInfo found');
 
         const userInfo = JSON.parse(userInfoStr);
-        const userId = Number(userInfo.sub);  // 토큰에 저장된 userId 사용
+        console.log('parsed userInfo:', userInfo);
+        const userId = Number(userInfo.id);
+        console.log('userId:', userId);
 
-        if (userId) {
+        if (userId && !isNaN(userId)) {
           const fetchedUser = await ProfileService.fetchUserById(userId);
           setUser(fetchedUser);
+        } else {
+          throw new Error('Invalid userId in userInfo');
         }
       } catch (error) {
         console.error('사용자 정보 로딩 실패:', error);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -40,6 +46,7 @@ export default function ProfilePage() {
 
     loadUserData();
   }, []);
+
 
   const tabs = [
     { id: 'info', label: '내 정보', icon: '👤' },
